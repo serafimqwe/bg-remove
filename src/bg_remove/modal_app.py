@@ -30,8 +30,12 @@ image = (
         "rembg[gpu]==2.0.85", "fastapi[standard]", "python-multipart", "pillow", "pydantic-settings"
     )
     .env({"U2NET_HOME": "/models", "BG_REMOVE_MODEL": MODEL, "BG_REMOVE_DEVICE": "cuda"})
-    # Weights are baked into the image at build time, never downloaded at runtime.
-    .run_commands(f"python -c \"from rembg import new_session; new_session('{MODEL}')\"")
+    # Weights are baked into the image at build time, never downloaded at runtime. The build
+    # step has no GPU, so ask for CPU explicitly (otherwise rembg logs a scary CUDA warning).
+    .run_commands(
+        'python -c "from rembg import new_session; '
+        f"new_session('{MODEL}', providers=['CPUExecutionProvider'])\""
+    )
     .add_local_python_source("bg_remove")
 )
 
