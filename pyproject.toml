@@ -1,0 +1,50 @@
+[project]
+name = "bg-remove"
+version = "0.1.0"
+description = "Self-hosted background removal API (BiRefNet on Modal GPU), a drop-in replacement for PhotoRoom /v1/segment"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "python-multipart>=0.0.9",
+  "pydantic-settings>=2.4",
+  "pillow>=10.4",
+  "rembg==2.0.85",
+  "onnxruntime>=1.20; extra != 'gpu'",
+]
+
+[project.optional-dependencies]
+cpu = ["onnxruntime>=1.20"]
+gpu = ["onnxruntime-gpu>=1.30"]
+serve = ["uvicorn[standard]>=0.30"]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6", "mypy>=1.11", "uvicorn[standard]>=0.30"]
+modal = ["modal>=1.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bg_remove"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "bg_remove.modal_app"
+disallow_untyped_decorators = false

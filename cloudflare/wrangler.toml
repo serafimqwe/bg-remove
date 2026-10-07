@@ -1,0 +1,12 @@
+name = "bg-remove-edge"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+# Your domain must be on Cloudflare. The route binds the Worker to it; DNS needs a proxied
+# (orange-cloud) record for the hostname, e.g. AAAA 100:: or CNAME to any target.
+routes = [{ pattern = "bg.example.com/*", zone_name = "example.com" }]
+
+# Secrets are set with `wrangler secret put <NAME>`, never here:
+#   ORIGIN_URL      https://<workspace>--bg-remove.modal.run
+#   ORIGIN_API_KEY  the BG_REMOVE_API_KEY stored in the Modal secret
+#   CLIENT_API_KEY  the key you hand to clients
