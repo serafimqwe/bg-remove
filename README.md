@@ -2,18 +2,23 @@
 
 Self-hosted background removal API. A drop-in replacement for PhotoRoom's `/v1/segment`:
 same request (multipart `image_file`, header `x-api-key`), same response (RGBA PNG).
-Runs **BiRefNet-general-lite** (MIT) on a **Modal L4 GPU**. The `*.modal.run` URL is all
-you need; a **Cloudflare Worker** for a custom domain and edge protection is an optional
-add-on, kept in [`cloudflare/`](cloudflare/).
+Runs **BiRefNet-general-lite** (MIT) on a **Modal L4 GPU**, for ~US$15 a month at 5k photos.
 
-Built after replacing PhotoRoom in a production ID-badge flow (~5k photos/month).
-Everything we learned is in [`docs/`](docs/): the model benchmark, the real numbers from
-Cloud Run and Modal, and the mistakes that made a GPU look slower than a CPU.
+![Six portraits, each split in half: original on the left, background removed on the right](docs/assets/examples.jpg)
 
-## Results in one table
+<sub>Each tile: original on the left, API output on the right (transparency as a checkerboard).
+Photos, all [CC0](https://creativecommons.org/publicdomain/zero/1.0/) via Wikimedia Commons:
+[William Stitt](https://commons.wikimedia.org/wiki/File:Girl_with_Afro_2.jpg),
+[Jeremy Bishop](https://commons.wikimedia.org/wiki/File:Curly_hair_and_freckles_man_(Unsplash).jpg),
+[Angelina Litvin](https://commons.wikimedia.org/wiki/File:Man_with_a_white_beard_and_glasses,_by_Angelina_Litvin,_2015-10-05_(Unsplash).jpg),
+[Toa Heftiba](https://commons.wikimedia.org/wiki/File:Closed_Eyes_(Unsplash).jpg),
+[Raquel Santana](https://commons.wikimedia.org/wiki/File:First_Shoot_(Unsplash).jpg),
+[Avi Richards](https://commons.wikimedia.org/wiki/File:Desert_Princess_(Unsplash).jpg).</sub>
 
-Measured on 100 real portrait photos, against PhotoRoom's output as ground truth
-(IoU = mask overlap, 1.0 = identical). Latency is per request on the deployed service.
+## Results
+
+Measured on 100 real portrait photos from a production ID-badge flow, against PhotoRoom's
+output as ground truth (IoU = mask overlap, 1.0 = identical).
 
 | | PhotoRoom | bg-remove (BiRefNet-lite, L4) |
 |---|---|---|
@@ -21,47 +26,25 @@ Measured on 100 real portrait photos, against PhotoRoom's output as ground truth
 | Cases visibly worse | — | 0 / 100 |
 | Inference p50 / p99 | — | **0.77 s / 1.48 s** |
 | Server time p50 / p99 (upload + infer + encode) | ~2 s | **1.2 s / 1.8 s** |
-| Cold start after idle | — | 2 to 6 s (memory snapshot) |
-| Cost at 5k req/month | ~US$100 | **~US$2.5** (inside Modal's free credit) |
+| Cold start (container restored from snapshot) | — | 7 to 16 s to first byte |
+| Cost at 5k photos/month | ~US$100 | **~US$15** |
 | License | commercial API | MIT (model and code) |
 
-Full tables, other models (u2net, isnet, BiRefNet-portrait, RMBG-2.0), CPU numbers and
-preprocessing ablations: [docs/benchmark.md](docs/benchmark.md).
+Other models, CPU numbers and preprocessing ablations are in [docs/benchmark.md](docs/benchmark.md);
+what went wrong along the way is in [docs/lessons.md](docs/lessons.md).
 
 ## Quick start
 
 ```bash
-uv sync --extra cpu --extra dev               # local CPU, for development and tests
+uv sync --extra cpu --extra dev
 cp .env.example .env                          # set BG_REMOVE_API_KEY
 uv run uvicorn --factory bg_remove.api:default_app --port 8000
-curl -X POST localhost:8000/v1/segment -H "x-api-key: $KEY" -F image_file=@photo.jpg -o out.png
+curl -X POST localhost:8000/v1/segment -H "x-api-key: $KEY" \
+  -F image_file=@docs/assets/example-input.jpg -o out.png
 ```
 
-## Deploy to Modal (GPU)
-
-```bash
-uv tool install modal && modal setup
-modal secret create bg-remove BG_REMOVE_API_KEY=$(openssl rand -hex 24)
-modal deploy -m bg_remove.modal_app           # prints https://<workspace>--bg-remove.modal.run
-scripts/warmup.sh <url> <key>                 # builds the memory snapshots (30-150 s each, once per revision)
-python scripts/bench.py <url> <key> photos/   # p50/p95/p99
-```
-
-That is a complete deployment. If you later want your own domain, rate limiting or WAF in
-front, [docs/deployment.md](docs/deployment.md) covers the optional Cloudflare Worker,
-what it adds (one extra hop, ~20 to 50 ms) and why plain DNS is not enough.
-
-## Project layout
-
-```
-src/bg_remove/config.py     typed settings, every env var validated at startup (BG_REMOVE_*)
-src/bg_remove/engine.py     rembg/onnxruntime session; fails fast if CUDA was requested but is not active
-src/bg_remove/api.py        FastAPI app factory (engine injected, so tests use a fake)
-src/bg_remove/modal_app.py  Modal deployment: CUDA 13 image, weights baked in, GPU memory snapshot
-cloudflare/                 Worker + wrangler.toml for a custom domain and edge auth
-scripts/                    warmup.sh (post-deploy), bench.py (latency)
-docs/                       benchmark.md, deployment.md, lessons.md
-```
+Locally it runs on CPU (5 to 10 s per photo). To deploy on a Modal GPU, with an optional
+custom domain through Cloudflare, follow **[DEPLOY.md](DEPLOY.md)**.
 
 ## API
 
@@ -72,12 +55,20 @@ docs/                       benchmark.md, deployment.md, lessons.md
 
 Errors: 401 bad key, 400 empty file, 413 too large, 422 not an image.
 
-## Configuration
+Coming from PhotoRoom, swap two values:
 
-All settings are environment variables with the `BG_REMOVE_` prefix, parsed and validated
-by `pydantic-settings` ([`config.py`](src/bg_remove/config.py)). See [`.env.example`](.env.example).
+```python
+response = requests.post(
+    "https://<workspace>--bg-remove.modal.run/v1/segment",  # was https://sdk.photoroom.com/v1/segment
+    headers={"x-api-key": API_KEY},
+    files={"image_file": ("photo.jpg", image_bytes)},
+    timeout=180,  # a cold container can take up to ~150 s; see DEPLOY.md
+)
+response.raise_for_status()
+png = response.content  # RGBA PNG
+```
 
 ## License
 
-MIT. BiRefNet weights are MIT as well. Do not switch to `bria-rmbg` (RMBG-2.0) for
-commercial use: it is CC BY-NC.
+[MIT](LICENSE). BiRefNet weights are MIT as well; do not switch to `bria-rmbg` (RMBG-2.0)
+for commercial use, it is CC BY-NC. Example photos are CC0.
