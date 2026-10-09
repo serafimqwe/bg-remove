@@ -34,6 +34,15 @@ server), server time (TTFB minus RTT), and wall. Only the first two describe the
   (~150 s). Clients must follow redirects (`curl -L`, `requests` does by default).
 - Snapshots are per worker type; the first 2 to 4 requests after a deploy are slow. Warm up.
 
+## Idle time is the bill
+
+Inference is under 1 s, yet with `scaledown_window=300` the Modal bill matched PhotoRoom's:
+with sparse traffic every photo kept an L4 up for ~5 minutes. Dropping the window to 10 s
+cut that to ~15 s per photo, but most requests became cold starts (7 to 16 s to first byte
+from Brazil, not the 2 to 6 s restore alone), and because snapshots are per worker type, a
+cold container occasionally lands on a worker type without one and takes ~150 s even after
+a warmup. Short windows need clients with a long timeout (180 s) that follow redirects.
+
 ## Cloud Run
 
 - BiRefNet-lite OOMs at 4 GiB and even at 8 GiB on CPU with default onnxruntime arenas.

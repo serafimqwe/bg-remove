@@ -1,10 +1,10 @@
 """Modal deployment: BiRefNet on an L4 GPU behind the FastAPI app, with memory snapshots.
 
     modal secret create bg-remove BG_REMOVE_API_KEY=$(openssl rand -hex 24)
-    modal deploy -m bg_remove.modal_app
+    PYTHONPATH=src modal deploy -m bg_remove.modal_app
     scripts/warmup.sh <url> <key>     # first requests of a new revision build the snapshots
 
-Why each setting is what it is: docs/deployment.md and docs/lessons.md.
+Why each setting is what it is: DEPLOY.md (Parameters) and docs/lessons.md.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 MODEL = os.environ.get("BG_REMOVE_MODEL", "birefnet-general-lite")
 GPU = os.environ.get("BG_REMOVE_GPU", "L4")
 SECRET = os.environ.get("BG_REMOVE_SECRET_NAME", "bg-remove")
+SCALEDOWN_S = int(os.environ.get("BG_REMOVE_SCALEDOWN_S", "10"))
 
 # onnxruntime-gpu 1.30 needs CUDA 13 + cuDNN 9. A CUDA 12 base image loads fine and then
 # silently runs on CPU. Keep the two in lockstep when bumping either.
@@ -47,7 +48,9 @@ app = modal.App("bg-remove", image=image)
     cpu=2,
     memory=3072,
     timeout=120,
-    scaledown_window=300,  # keep a warm container 5 min after the last request
+    # Idle time, not inference, is the bill: a 300 s window cost as much as PhotoRoom.
+    # 10 s pays a 2 to 6 s snapshot cold start on most requests instead.
+    scaledown_window=SCALEDOWN_S,
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
     max_containers=3,

@@ -89,4 +89,21 @@ the snapshot): 2 to 6 s. The first request of a new revision still takes ~150 s 
 2 or 3 take 40 to 105 s, because Modal builds one snapshot per worker type. `scripts/warmup.sh`
 pays that cost right after deploy.
 
-Cost: L4 at US$0.000222/s, ~2 s per request → 5,000 req/month ≈ US$2.5.
+Cost: L4 at US$0.000222/s. Inference is ~2 s per request, but you pay for the whole time a
+container is up, and with sparse traffic that is `cold start + inference + scaledown_window`
+per request. At 300 s that is ~300 s per photo and the bill matched PhotoRoom's; at 10 s it is
+~15 s per photo (~US$0.003, about US$15/month at 5k requests).
+
+## Candidate: u2net_human_seg on CPU (to evaluate)
+
+The cheaper path to test next. On a Modal CPU container it infers in 0.55 s (p99 0.74 s) with
+a 2.1 s cold start, so it needs no GPU at all, and idle CPU seconds cost a fraction of idle L4
+seconds. The price is quality: IoU 0.977 and 4% of photos visibly worse, mostly when hair or
+shoulders touch the crop border. Reflect-pad 15% helps (dev split: 0.972, min 0.84).
+
+A hybrid is the interesting version: u2net_human_seg + pad on CPU for every photo, and only
+the photos with a suspicious mask go to BiRefNet-lite on the L4. The CPU-only attempts above
+(rows 8 and 9) failed on thresholds: strict ones routed 14 of 20 photos to the slow path,
+loose ones lost 0.0075 IoU. On Modal the trade-off is different (the slow path is 0.8 s on a
+GPU, not 9 s on a CPU), so the thresholds and the routed share need to be measured again,
+with cost per photo as the target metric.
