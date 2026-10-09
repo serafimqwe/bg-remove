@@ -51,7 +51,7 @@ nicer prefix, or put a custom domain in front (section 2).
 | Variable | Default | What it does |
 |---|---|---|
 | `BG_REMOVE_MODEL` | `birefnet-general-lite` | rembg model baked into the image. See the [benchmark](docs/benchmark.md) before changing it |
-| `BG_REMOVE_GPU` | `L4` | Modal GPU type. L4 is the cheapest that fits; BiRefNet-lite needs no more |
+| `BG_REMOVE_GPU` | `L4,T4` | Modal GPU types, in order of preference. If no L4 is free Modal takes a T4 (cheaper, a little slower) instead of making the request wait for an L4 |
 | `BG_REMOVE_SCALEDOWN_S` | `10` | Seconds an idle container stays up. See the trade-off below |
 | `BG_REMOVE_SECRET_NAME` | `bg-remove` | Modal secret that holds `BG_REMOVE_API_KEY` |
 
@@ -78,7 +78,7 @@ BG_REMOVE_SCALEDOWN_S=60 PYTHONPATH=src modal deploy -m bg_remove.modal_app
 | weights | baked into the image | never downloaded at runtime |
 | `cpu` / `memory` | 2 / 3 GiB | PNG decode/encode and the model are small; the GPU does the work |
 | `enable_memory_snapshot` + `enable_gpu_snapshot` | on | cold start 132 s → seconds; the model is loaded and warmed inside the snapshot |
-| `@modal.concurrent(max_inputs=1)` | 1 | one inference per container; scale with containers |
+| `@modal.concurrent(max_inputs=4)` | 4 | a burst queues inside a warm container (~1 s per photo) instead of each photo waiting for a new GPU, which took 1 to 2 min in production |
 | `max_containers` | 3 | enough for ~1 req/s; raise with volume |
 | `timeout` | 120 s | per request |
 

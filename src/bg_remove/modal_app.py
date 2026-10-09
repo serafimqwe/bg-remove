@@ -19,7 +19,8 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
 MODEL = os.environ.get("BG_REMOVE_MODEL", "birefnet-general-lite")
-GPU = os.environ.get("BG_REMOVE_GPU", "L4")
+# Ordered fallback: if no L4 is free, Modal takes a T4 instead of queueing for minutes.
+GPU = os.environ.get("BG_REMOVE_GPU", "L4,T4").split(",")
 SECRET = os.environ.get("BG_REMOVE_SECRET_NAME", "bg-remove")
 SCALEDOWN_S = int(os.environ.get("BG_REMOVE_SCALEDOWN_S", "10"))
 
@@ -56,7 +57,9 @@ app = modal.App("bg-remove", image=image)
     max_containers=3,
     secrets=[modal.Secret.from_name(SECRET)],
 )
-@modal.concurrent(max_inputs=1)  # one inference per container; scale horizontally
+# Inference blocks the event loop, so inputs run one after another inside the container. A
+# burst queues for ~1 s each on a warm GPU instead of each one waiting for a new GPU.
+@modal.concurrent(max_inputs=4)
 class Service:
     @modal.enter(snap=True)
     def load(self) -> None:
