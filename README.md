@@ -2,7 +2,7 @@
 
 Self-hosted background removal API. A drop-in replacement for PhotoRoom's `/v1/segment`:
 same request (multipart `image_file`, header `x-api-key`), same response (RGBA PNG).
-Runs **BiRefNet-general-lite** (MIT) on a **Modal L4 GPU**, for ~US$15 a month at 5k photos.
+Runs **BiRefNet-general-lite** (MIT) on a **Modal T4 GPU**, for ~US$15 a month at 5k photos.
 
 ![Six portraits, each split in half: original on the left, background removed on the right](docs/assets/examples.jpg)
 
@@ -29,6 +29,9 @@ output as ground truth (IoU = mask overlap, 1.0 = identical).
 | Cold start (container restored from snapshot) | — | 7 to 16 s to first byte |
 | Cost at 5k photos/month | ~US$100 | **~US$15** |
 | License | commercial API | MIT (model and code) |
+
+Measured on an L4. Production now runs on a T4: same masks (IoU 0.9999 against the L4),
+inference ~1.1 s, 26% cheaper per second ([issue #1](https://github.com/serafimqwe/bg-remove/issues/1)).
 
 Other models, CPU numbers and preprocessing ablations are in [docs/benchmark.md](docs/benchmark.md);
 what went wrong along the way is in [docs/lessons.md](docs/lessons.md).

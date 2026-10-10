@@ -7,7 +7,7 @@ Cloudflare Worker in front is optional and only adds a custom domain and edge pr
 client ──x-api-key (client key)──▶ Cloudflare Worker  (optional: your domain, WAF, rate limit)
                                          │  x-api-key (origin key), Host rewritten
                                          ▼
-                                   Modal: bg-remove   (L4, FastAPI, memory snapshot)
+                                   Modal: bg-remove   (T4, FastAPI, memory snapshot)
 ```
 
 ## 1. Modal
@@ -51,7 +51,7 @@ nicer prefix, or put a custom domain in front (section 2).
 | Variable | Default | What it does |
 |---|---|---|
 | `BG_REMOVE_MODEL` | `birefnet-general-lite` | rembg model baked into the image. See the [benchmark](docs/benchmark.md) before changing it |
-| `BG_REMOVE_GPU` | `L4,T4` | Modal GPU types, in order of preference. If no L4 is free Modal takes a T4 (cheaper, a little slower) instead of making the request wait for an L4 |
+| `BG_REMOVE_GPU` | `T4` | Modal GPU type, or a comma list as an ordered fallback. T4 gives the same mask as the L4 (IoU 0.9999), ~15% slower inference (1.1 s), 26% cheaper (US$0.000164/s). Benchmark in issue #1 |
 | `BG_REMOVE_SCALEDOWN_S` | `10` | Seconds an idle container stays up. See the trade-off below |
 | `BG_REMOVE_SECRET_NAME` | `bg-remove` | Modal secret that holds `BG_REMOVE_API_KEY` |
 | `BG_REMOVE_APP_NAME` | `bg-remove` | Modal app name and URL label. Another name deploys a separate app next to production |

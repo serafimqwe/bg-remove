@@ -19,8 +19,9 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
 MODEL = os.environ.get("BG_REMOVE_MODEL", "birefnet-general-lite")
-# Ordered fallback: if no L4 is free, Modal takes a T4 instead of queueing for minutes.
-GPU = os.environ.get("BG_REMOVE_GPU", "L4,T4").split(",")
+# T4: same mask as the L4 (IoU 0.9999), ~15% slower inference, 26% cheaper. A comma list is an
+# ordered fallback, but it did not shorten the wait for a GPU (issue #1).
+GPU = os.environ.get("BG_REMOVE_GPU", "T4").split(",")
 SECRET = os.environ.get("BG_REMOVE_SECRET_NAME", "bg-remove")
 # A different name deploys a separate app and URL (benchmarks, a CPU variant) next to production.
 APP_NAME = os.environ.get("BG_REMOVE_APP_NAME", "bg-remove")
