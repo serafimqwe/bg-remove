@@ -22,6 +22,8 @@ MODEL = os.environ.get("BG_REMOVE_MODEL", "birefnet-general-lite")
 # Ordered fallback: if no L4 is free, Modal takes a T4 instead of queueing for minutes.
 GPU = os.environ.get("BG_REMOVE_GPU", "L4,T4").split(",")
 SECRET = os.environ.get("BG_REMOVE_SECRET_NAME", "bg-remove")
+# A different name deploys a separate app and URL (benchmarks, a CPU variant) next to production.
+APP_NAME = os.environ.get("BG_REMOVE_APP_NAME", "bg-remove")
 SCALEDOWN_S = int(os.environ.get("BG_REMOVE_SCALEDOWN_S", "10"))
 
 # onnxruntime-gpu 1.30 needs CUDA 13 + cuDNN 9. A CUDA 12 base image loads fine and then
@@ -41,7 +43,7 @@ image = (
     .add_local_python_source("bg_remove")
 )
 
-app = modal.App("bg-remove", image=image)
+app = modal.App(APP_NAME, image=image)
 
 
 @app.cls(
@@ -71,7 +73,7 @@ class Service:
         self.engine = RembgEngine.load(get_settings())
         print(f"engine ready in {time.perf_counter() - t0:.1f}s on {self.engine.device}")
 
-    @modal.asgi_app(label="bg-remove")
+    @modal.asgi_app(label=APP_NAME)
     def web(self) -> FastAPI:
         from bg_remove.api import create_app
 

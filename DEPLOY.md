@@ -54,6 +54,7 @@ nicer prefix, or put a custom domain in front (section 2).
 | `BG_REMOVE_GPU` | `L4,T4` | Modal GPU types, in order of preference. If no L4 is free Modal takes a T4 (cheaper, a little slower) instead of making the request wait for an L4 |
 | `BG_REMOVE_SCALEDOWN_S` | `10` | Seconds an idle container stays up. See the trade-off below |
 | `BG_REMOVE_SECRET_NAME` | `bg-remove` | Modal secret that holds `BG_REMOVE_API_KEY` |
+| `BG_REMOVE_APP_NAME` | `bg-remove` | Modal app name and URL label. Another name deploys a separate app next to production |
 
 ```bash
 BG_REMOVE_SCALEDOWN_S=60 PYTHONPATH=src modal deploy -m bg_remove.modal_app
